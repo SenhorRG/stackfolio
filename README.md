@@ -40,7 +40,6 @@ apps/web/          Next.js frontend
 apps/api/          NestJS API + Prisma
 packages/shared/   Types and Zod schemas
 docs/              ADRs and architecture
-prompt-tasks/      Implementation phases and progress
 ```
 
 ## Documentation
