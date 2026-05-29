@@ -1,0 +1,29 @@
+{
+  "name": "stackfolio",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Open-source stack organizer and ATS-safe resume PDF generator",
+  "scripts": {
+    "predev": "docker compose up -d postgres",
+    "dev": "dotenv -e .env -- pnpm --parallel --filter @stackfolio/shared --filter @stackfolio/web --filter @stackfolio/api dev",
+    "dev:web": "dotenv -e .env -- pnpm --filter @stackfolio/web dev",
+    "dev:api": "dotenv -e .env -- pnpm --filter @stackfolio/api dev",
+    "build": "pnpm run -r build",
+    "lint": "pnpm run -r lint",
+    "typecheck": "pnpm run -r typecheck",
+    "test": "pnpm run -r test",
+    "db:migrate": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma migrate dev",
+    "db:migrate:deploy": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma migrate deploy",
+    "db:seed": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma db seed",
+    "db:setup": "pnpm db:migrate:deploy && pnpm db:seed",
+    "db:reset": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma migrate reset --force",
+    "db:studio": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma studio"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

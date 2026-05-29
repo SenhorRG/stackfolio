@@ -1,0 +1,1 @@
+{"version":3,"file":"relation-type.js","sourceRoot":"","sources":["relation-type.ts"],"names":[],"mappings":";;;AAAa,QAAA,YAAY,GAAG;IAC1B,OAAO,EAAE,SAAS;IAClB,WAAW,EAAE,aAAa;IAC1B,YAAY,EAAE,cAAc;IAC5B,QAAQ,EAAE,UAAU;IACpB,SAAS,EAAE,WAAW;CACd,CAAC;AAKE,QAAA,cAAc,GAAG,MAAM,CAAC,MAAM,CAAC,oBAAY,CAAC,CAAC"}
