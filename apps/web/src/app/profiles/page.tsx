@@ -13,8 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ProfileCard } from '@/features/profiles/components/profile-card';
 import { ProfileCreateFromPdf } from '@/features/profiles/components/profile-create-from-pdf';
+import { ProfileBackupChoiceModal } from '@/features/profiles/backup/profile-backup-choice-modal';
+import {
+  ProfileBackupImportResultModal,
+  type BackupImportResult,
+} from '@/features/profiles/backup/profile-backup-import-result-modal';
+import { useProfileBackupImport } from '@/features/profiles/backup/use-profile-backup-import';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
+import { ApiError } from '@/lib/api-error';
 
 type Profile = {
   id: string;
@@ -30,7 +37,14 @@ export default function ProfilesPage() {
   const queryEnabled = useAuthenticatedQueryEnabled();
   const [name, setName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showBackup, setShowBackup] = useState(false);
+  const [importResult, setImportResult] = useState<BackupImportResult | null>(
+    null,
+  );
+  const [importError, setImportError] = useState<string | null>(null);
+  const [showImportResult, setShowImportResult] = useState(false);
   const queryClient = useQueryClient();
+  const importBackup = useProfileBackupImport(token ?? undefined);
 
   const { data, isLoading } = useQuery({
     queryKey: ['profiles'],
@@ -97,8 +111,54 @@ export default function ProfilesPage() {
       <PageHeader
         title="Profiles"
         actions={
-          <Button onClick={() => setShowCreate((v) => !v)}>New profile</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setShowBackup(true)}>
+              Backup
+            </Button>
+            <Button onClick={() => setShowCreate((v) => !v)}>New profile</Button>
+          </div>
         }
+      />
+
+      <ProfileBackupChoiceModal
+        open={showBackup}
+        onClose={() => setShowBackup(false)}
+        importPending={importBackup.isPending}
+        onImportFile={(file) => {
+          setShowBackup(false);
+          setImportResult(null);
+          setImportError(null);
+          setShowImportResult(true);
+          importBackup.mutate(file, {
+            onSuccess: (result) => {
+              setImportResult(result);
+              setImportError(null);
+            },
+            onError: (err) => {
+              setImportResult(null);
+              setImportError(
+                err instanceof ApiError
+                  ? err.message
+                  : err instanceof Error
+                    ? err.message
+                    : 'Import failed.',
+              );
+            },
+          });
+        }}
+      />
+
+      <ProfileBackupImportResultModal
+        open={showImportResult}
+        pending={importBackup.isPending}
+        result={importResult}
+        error={importError}
+        onClose={() => {
+          if (importBackup.isPending) return;
+          setShowImportResult(false);
+          setImportResult(null);
+          setImportError(null);
+        }}
       />
 
       {showCreate && (

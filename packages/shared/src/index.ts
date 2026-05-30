@@ -22,3 +22,4 @@ export * from './entities/profile-skill';
 export * from './entities/skill-relation';
 export * from './entities/resume-project';
 export * from './resume';
+export * from './backup';
