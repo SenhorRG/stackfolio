@@ -10,5 +10,12 @@ export async function verifyPassword(
   plain: string,
   passwordHash: string,
 ): Promise<boolean> {
-  return compare(plain, passwordHash);
+  if (!passwordHash.startsWith('$2')) {
+    return false;
+  }
+  try {
+    return await compare(plain, passwordHash);
+  } catch {
+    return false;
+  }
 }

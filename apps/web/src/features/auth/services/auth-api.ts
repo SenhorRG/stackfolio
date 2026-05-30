@@ -33,7 +33,18 @@ export async function loginAccount(input: {
     body: JSON.stringify(input),
   });
   if (!res.ok) {
-    return Promise.reject(new Error('Invalid email or password'));
+    let message = 'Invalid email or password';
+    try {
+      const data = (await res.json()) as { message?: string | string[] };
+      if (typeof data.message === 'string') {
+        message = data.message;
+      } else if (Array.isArray(data.message) && data.message[0]) {
+        message = data.message[0];
+      }
+    } catch {
+      // ignore parse errors
+    }
+    return Promise.reject(new Error(message));
   }
   return res.json() as Promise<AuthUser>;
 }

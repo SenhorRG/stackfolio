@@ -1,0 +1,1 @@
+export const PASSWORD_RESET_TOKEN_EXPIRY_HOURS = 1;

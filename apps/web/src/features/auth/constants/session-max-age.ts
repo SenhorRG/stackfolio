@@ -1,0 +1,2 @@
+export const SESSION_MAX_AGE_DEFAULT_SECONDS = 24 * 60 * 60;
+export const SESSION_MAX_AGE_REMEMBER_SECONDS = 30 * 24 * 60 * 60;

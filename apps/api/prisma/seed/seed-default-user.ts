@@ -95,21 +95,24 @@ export async function seedDefaultUser(
   skillMap: Map<string, string>,
   config: DefaultUserSeedConfig = resolveDefaultUserSeedConfig(),
 ): Promise<void> {
+  const email = config.email.trim().toLowerCase();
   const passwordHash = await hash(config.password, 10);
-  const defaultIdentity = buildFullDefaultIdentity(config.email);
+  const defaultIdentity = buildFullDefaultIdentity(email);
 
   await prisma.user.upsert({
     where: { id: config.userId },
     create: {
       id: config.userId,
-      email: config.email,
+      email,
       passwordHash,
+      passwordCredentialSet: true,
       name: 'Dev User',
       settings: { create: {} },
     },
     update: {
-      email: config.email,
+      email,
       passwordHash,
+      passwordCredentialSet: true,
       name: 'Dev User',
     },
   });
@@ -215,5 +218,5 @@ export async function seedDefaultUser(
     update: {},
   });
 
-  console.log('Default dev user seeded:', config.userId, config.email);
+  console.log('Default dev user seeded:', config.userId, email);
 }

@@ -11,8 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
+  const resetSuccess = searchParams.get('reset') === 'success';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -21,18 +23,28 @@ export function LoginForm() {
         <CardTitle>Sign in</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {resetSuccess && (
+          <p className="text-sm text-muted-foreground">
+            Password updated. Sign in with your new password.
+          </p>
+        )}
         <form
           className="space-y-3"
           onSubmit={async (e) => {
             e.preventDefault();
             setError(null);
             const result = await signIn('credentials', {
-              email,
+              email: email.trim(),
               password,
+              rememberMe: rememberMe ? 'true' : 'false',
               redirect: false,
             });
             if (result?.error) {
-              setError('Invalid email or password');
+              setError(
+                result.error === 'CredentialsSignin'
+                  ? 'Invalid email or password'
+                  : decodeURIComponent(result.error),
+              );
               return;
             }
             window.location.href = callbackUrl;
@@ -52,6 +64,20 @@ export function LoginForm() {
             placeholder="Password"
             required
           />
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="size-4 rounded border border-input"
+            />
+            Remember me
+          </label>
+          <div className="text-right text-sm">
+            <Link href="/forgot-password" className="text-primary hover:underline">
+              Forgot password?
+            </Link>
+          </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full">
             Sign in

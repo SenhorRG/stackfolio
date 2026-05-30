@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
 import { randomBytes } from 'crypto';
+import { normalizeAuthEmail } from './normalize-auth-email';
 import { hashPassword, verifyPassword } from './password.util';
 
 export type AuthUserDto = {
@@ -20,7 +21,7 @@ export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
 
   async register(dto: RegisterDto): Promise<AuthUserDto> {
-    const email = dto.email.trim().toLowerCase();
+    const email = normalizeAuthEmail(dto.email);
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
       throw new ConflictException('Email already registered');
@@ -33,6 +34,7 @@ export class AuthService {
       data: {
         email,
         passwordHash,
+        passwordCredentialSet: true,
         name,
         settings: { create: {} },
         profiles: {
@@ -48,10 +50,16 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthUserDto> {
-    const email = dto.email.trim().toLowerCase();
+    const email = normalizeAuthEmail(dto.email);
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (!user.passwordCredentialSet) {
+      throw new UnauthorizedException(
+        'This account has no password yet. Use forgot password to set one, or sign in with GitHub.',
+      );
     }
 
     const valid = await verifyPassword(dto.password, user.passwordHash);
@@ -66,7 +74,7 @@ export class AuthService {
     email: string,
     name?: string,
   ): Promise<AuthUserDto> {
-    const normalized = email.trim().toLowerCase();
+    const normalized = normalizeAuthEmail(email);
     const existing = await this.prisma.user.findUnique({
       where: { email: normalized },
     });
@@ -90,6 +98,7 @@ export class AuthService {
       data: {
         email: normalized,
         passwordHash,
+        passwordCredentialSet: false,
         name: name?.trim() || normalized.split('@')[0],
         settings: { create: {} },
         profiles: {
