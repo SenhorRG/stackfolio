@@ -43,12 +43,11 @@ export function resolvePackingMetrics(
   const baseLinePx = ptToPx(parsePt(resolved.lineHeight));
   const sectionGapPx = ptToPx(parsePt(resolved.sectionGap));
 
+  const h2FontPx = fontPx * 0.85;
   const sectionTitleHeightPx = Math.round(
-    fontPx * 0.85 + fontPx * 0.75 + 4 + fontPx * 0.8,
+    baseLinePx + h2FontPx * (0.35 + 0.4 + 0.25),
   );
-  const sectionPartGapPx = Math.round(
-    baseLinePx * 0.15 + sectionGapPx * 0.08,
-  );
+  const sectionPartGapPx = Math.round(baseLinePx * 0.15);
   const listLineHeightPx = Math.round(baseLinePx + fontPx * 0.12);
   const listItemHeaderHeightPx = Math.round(baseLinePx * 1.45 + fontPx * 0.25);
   const headerHeightPx = Math.round(fontPx * 1.5 + baseLinePx * 2 + sectionGapPx);

@@ -10,12 +10,15 @@ import {
   matchesLayoutUnitKey,
 } from './continuation-overrides';
 import { relocateSlicesBeforePrimaryPage } from './section-primary-page';
+import { measureSplittableItemHeightPx } from './measure-splittable-item-height';
+import { rebalanceOverflowingPagesOnly } from './rebalance-packed-pages';
 import type { PageMetricsTuning } from './page-metrics-tuning';
 import {
   resolvePackingMetrics,
   type PackingMetrics,
 } from './typography-packing-metrics';
 import { coalesceSlicesForLayout } from './coalesce-slice-batches';
+import { resolveSlicePairGapPx } from './resolve-slice-pair-gap-px';
 import { shouldRenderSectionHeadingOnPage } from './should-render-section-heading-on-page';
 import {
   buildLayoutUnits,
@@ -124,13 +127,11 @@ function measureUnitBlockHeight(
   unit: LayoutUnit,
   metrics: PackingMetrics,
   heading: SliceHeading,
-  needsLeadingGap: boolean,
-  sameSectionPartGap: boolean,
+  layoutGapBeforePx: number,
 ): number {
   return (
-    (needsLeadingGap ? metrics.sectionGapPx : 0) +
+    layoutGapBeforePx +
     (heading.needsHeading ? metrics.sectionTitleHeightPx : 0) +
-    (sameSectionPartGap ? metrics.sectionPartGapPx : 0) +
     unit.contentHeightPx
   );
 }
@@ -194,14 +195,6 @@ function needsLeadingSectionGap(
   unit: LayoutUnit,
 ): boolean {
   return pageSlices.length > 0 && lastSectionOnPage !== unit.sectionId;
-}
-
-function needsSameSectionPartGap(
-  pageSlices: SectionRenderSlice[],
-  lastSectionOnPage: ResumeSectionIdValue | null,
-  unit: LayoutUnit,
-): boolean {
-  return pageSlices.length > 0 && lastSectionOnPage === unit.sectionId;
 }
 
 /** True when slice order never returns to a section after a later section started. */
@@ -431,7 +424,7 @@ function measureCommaSkillCoalescedBlock(
   units: LayoutUnit[],
   metrics: PackingMetrics,
   heading: SliceHeading,
-  needsLeadingGap: boolean,
+  layoutGapBeforePx: number,
 ): number {
   const batches =
     slice.commaLineParts ??
@@ -445,7 +438,7 @@ function measureCommaSkillCoalescedBlock(
       : []);
 
   let blockHeight =
-    (needsLeadingGap ? metrics.sectionGapPx : 0) +
+    layoutGapBeforePx +
     (heading.needsHeading ? metrics.sectionTitleHeightPx : 0);
 
   for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -471,12 +464,12 @@ function measureSkillCategoryRangeBlock(
   units: LayoutUnit[],
   metrics: PackingMetrics,
   heading: SliceHeading,
-  needsLeadingGap: boolean,
+  layoutGapBeforePx: number,
 ): number {
   const catStart = slice.categoryStart ?? 0;
   const catEnd = slice.categoryEnd ?? catStart + 1;
   let blockHeight =
-    (needsLeadingGap ? metrics.sectionGapPx : 0) +
+    layoutGapBeforePx +
     (heading.needsHeading ? metrics.sectionTitleHeightPx : 0);
 
   for (let catIndex = catStart; catIndex < catEnd; catIndex++) {
@@ -499,21 +492,29 @@ function measureListItemRangeBlock(
   units: LayoutUnit[],
   metrics: PackingMetrics,
   heading: SliceHeading,
-  needsLeadingGap: boolean,
+  layoutGapBeforePx: number,
 ): number {
   const start = slice.itemStart ?? 0;
   const end = slice.itemEnd ?? start + 1;
   let blockHeight =
-    (needsLeadingGap ? metrics.sectionGapPx : 0) +
+    layoutGapBeforePx +
     (heading.needsHeading ? metrics.sectionTitleHeightPx : 0);
 
   for (let itemIndex = start; itemIndex < end; itemIndex++) {
-    const unit = findListItemUnit(units, slice.sectionId, itemIndex, 'full');
-    if (!unit) continue;
     if (itemIndex > start) {
       blockHeight += metrics.sectionPartGapPx;
     }
-    blockHeight += unit.contentHeightPx;
+    const fullUnit = findListItemUnit(units, slice.sectionId, itemIndex, 'full');
+    if (fullUnit) {
+      blockHeight += fullUnit.contentHeightPx;
+      continue;
+    }
+    blockHeight += measureSplittableItemHeightPx(
+      slice.sectionId,
+      itemIndex,
+      units,
+      metrics,
+    );
   }
 
   return blockHeight;
@@ -524,8 +525,7 @@ function measureCoalescedSliceBlock(
   units: LayoutUnit[],
   metrics: PackingMetrics,
   heading: SliceHeading,
-  needsLeadingGap: boolean,
-  sameSectionPartGap: boolean,
+  layoutGapBeforePx: number,
 ): number {
   const itemSpan =
     slice.itemStart != null && slice.itemEnd != null
@@ -550,7 +550,7 @@ function measureCoalescedSliceBlock(
       units,
       metrics,
       heading,
-      needsLeadingGap,
+      layoutGapBeforePx,
     );
   }
 
@@ -560,7 +560,7 @@ function measureCoalescedSliceBlock(
       units,
       metrics,
       heading,
-      needsLeadingGap,
+      layoutGapBeforePx,
     );
   }
 
@@ -570,19 +570,32 @@ function measureCoalescedSliceBlock(
       units,
       metrics,
       heading,
-      needsLeadingGap,
+      layoutGapBeforePx,
     );
+  }
+
+  if (
+    slice.itemStart != null &&
+    (slice.part === 'full' || slice.part === undefined)
+  ) {
+    const itemHeight = measureSplittableItemHeightPx(
+      slice.sectionId,
+      slice.itemStart,
+      units,
+      metrics,
+    );
+    if (itemHeight > 0) {
+      return (
+        layoutGapBeforePx +
+        (heading.needsHeading ? metrics.sectionTitleHeightPx : 0) +
+        itemHeight
+      );
+    }
   }
 
   const unit = findLayoutUnitForSlice(units, slice);
   if (!unit) return 0;
-  return measureUnitBlockHeight(
-    unit,
-    metrics,
-    heading,
-    needsLeadingGap,
-    sameSectionPartGap,
-  );
+  return measureUnitBlockHeight(unit, metrics, heading, layoutGapBeforePx);
 }
 
 export function measurePageContentHeight(
@@ -609,8 +622,11 @@ export function measurePageContentHeight(
       slice.categoryEnd != null &&
       slice.categoryEnd - slice.categoryStart > 1;
 
+    const hasListItemSlice = slice.itemStart != null;
+
     if (
       !probeUnit &&
+      !hasListItemSlice &&
       !slice.commaLineBatch &&
       !slice.commaLineParts?.length &&
       !hasMergedSkillCategories
@@ -637,18 +653,18 @@ export function measurePageContentHeight(
       lastSectionOnPage,
       unit,
     );
-    const sameSectionPartGap = needsSameSectionPartGap(
-      prefix,
-      lastSectionOnPage,
-      unit,
-    );
+    const prevSlice = prefix.length ? prefix[prefix.length - 1]! : null;
+    const layoutGapBeforePx = needsLeadingGap
+      ? metrics.sectionGapPx
+      : prevSlice && lastSectionOnPage === slice.sectionId
+        ? resolveSlicePairGapPx(prevSlice, slice, metrics)
+        : 0;
     used += measureCoalescedSliceBlock(
       slice,
       units,
       metrics,
       heading,
-      needsLeadingGap,
-      sameSectionPartGap,
+      layoutGapBeforePx,
     );
     prefix.push(slice);
     lastSectionOnPage = slice.sectionId;
@@ -929,6 +945,13 @@ export function applyPageOverflow(
   );
   packed = relocateSlicesBeforePrimaryPage(packed, manualPages).map((page) =>
     reorderPageSlicesBySectionBlocks(page ?? [], ordered),
+  );
+  packed = rebalanceOverflowingPagesOnly(
+    packed,
+    units,
+    metrics.headerHeightPx,
+    metrics,
+    ordered,
   );
 
   while (reservedPageIds.length < packed.length) {

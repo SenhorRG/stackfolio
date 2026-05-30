@@ -77,12 +77,18 @@ describe('applyPageOverflow — entire-subsection overrides', () => {
       withOverride[0]!.slices.some((slice) => slice.sectionId === 'experience'),
     ).toBe(false);
 
-    const page2Experience = withOverride[1]!.slices.filter(
-      (slice) => slice.sectionId === 'experience',
-    );
-    expect(page2Experience).toHaveLength(1);
-    expect(page2Experience[0]?.part).toBe('full');
-    expect(page2Experience[0]?.itemStart).toBe(0);
+    const continuationExperience = withOverride
+      .slice(1)
+      .flatMap((page) => page.slices)
+      .filter((slice) => slice.sectionId === 'experience');
+
+    expect(continuationExperience.length).toBeGreaterThan(0);
+    expect(
+      continuationExperience.every((slice) => slice.itemStart === 0),
+    ).toBe(true);
+    expect(
+      withOverride[1]!.slices.some((slice) => slice.sectionId === 'experience'),
+    ).toBe(true);
   });
 
   it('coalesces split skill category batches into one category block', () => {
@@ -139,5 +145,103 @@ describe('applyPageOverflow — entire-subsection overrides', () => {
     });
     expect(page2Skills[0]?.commaLineBatch).toBeUndefined();
     expect(page2Skills[0]?.skillBatchStart).toBeUndefined();
+  });
+
+  it('coalesces only the boundary subsection when two items span the page break', () => {
+    const packed: SectionRenderSlice[][] = [
+      [
+        {
+          sectionId: 'experience',
+          showHeading: true,
+          itemStart: 0,
+          itemEnd: 1,
+          part: 'header',
+        },
+        {
+          sectionId: 'experience',
+          showHeading: false,
+          itemStart: 0,
+          itemEnd: 1,
+          part: 'bullet',
+          bulletIndex: 0,
+        },
+        {
+          sectionId: 'experience',
+          showHeading: false,
+          itemStart: 1,
+          itemEnd: 2,
+          part: 'header',
+        },
+      ],
+      [
+        {
+          sectionId: 'experience',
+          showHeading: false,
+          itemStart: 0,
+          itemEnd: 1,
+          part: 'bullet',
+          bulletIndex: 1,
+        },
+        {
+          sectionId: 'experience',
+          showHeading: false,
+          itemStart: 1,
+          itemEnd: 2,
+          part: 'bullet',
+          bulletIndex: 0,
+        },
+      ],
+    ];
+
+    const result = applyContinuationOverrides(
+      packed,
+      ['page-1', 'page-2'],
+      { [continuationOverrideKey('page-2', 'experience')]: 'entire-subsection' },
+      [
+        { id: 'page-1', sectionIds: ['experience'] },
+        {
+          id: 'page-2',
+          sectionIds: [],
+          continuationSectionIds: ['experience'],
+        },
+      ],
+    );
+
+    expect(
+      result[0]!.some(
+        (slice) =>
+          slice.sectionId === 'experience' &&
+          slice.itemStart === 0 &&
+          slice.part === 'header',
+      ),
+    ).toBe(true);
+    expect(
+      result[0]!.some(
+        (slice) =>
+          slice.sectionId === 'experience' &&
+          slice.itemStart === 0 &&
+          slice.part === 'bullet',
+      ),
+    ).toBe(true);
+    expect(
+      result[0]!.some(
+        (slice) => slice.sectionId === 'experience' && slice.itemStart === 1,
+      ),
+    ).toBe(false);
+
+    const page2Item1 = result[1]!.filter(
+      (slice) => slice.sectionId === 'experience' && slice.itemStart === 1,
+    );
+    expect(page2Item1).toHaveLength(1);
+    expect(page2Item1[0]).toMatchObject({
+      itemStart: 1,
+      itemEnd: 2,
+      part: 'full',
+    });
+    expect(
+      result[1]!.some(
+        (slice) => slice.sectionId === 'experience' && slice.itemStart === 0,
+      ),
+    ).toBe(true);
   });
 });

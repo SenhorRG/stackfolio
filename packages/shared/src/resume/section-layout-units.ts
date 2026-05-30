@@ -7,6 +7,12 @@ import {
 import { resolveSkillContentFormatOptions } from '../profiles/profile-skill-display-settings';
 import type { SkillInlineFormatOptions } from '../profiles/profile-skill-display-settings';
 import { normalizeItemBullets } from './normalize-item-bullets';
+import {
+  nestedBulletItemGapPx,
+  nestedListTopMarginPx,
+  resolveBulletVisualLineHeightPx,
+} from './bullet-line-height';
+import { estimateWrappedTextLineCount } from './estimate-wrapped-text-line-count';
 import { splitCommaCategoryIntoLineBatches } from './split-comma-category-line-batches';
 import {
   resolvePackingMetrics,
@@ -120,12 +126,38 @@ function buildCommaSkillLayoutUnits(
 export function estimateListItemHeightPx(
   item: Record<string, unknown>,
   metrics: PackingMetrics = resolvePackingMetrics(),
+  sectionId: ResumeSectionIdValue = 'experience',
 ): number {
   const bullets = normalizeItemBullets(item);
-  const bodyLines = bullets.length > 0 ? bullets.length : 0;
-  return (
-    metrics.listItemHeaderHeightPx + bodyLines * metrics.bulletLineHeightPx
+  if (!bullets.length) {
+    return metrics.listItemHeaderHeightPx;
+  }
+
+  const linePx = resolveBulletVisualLineHeightPx(
+    sectionId,
+    'full-item',
+    metrics,
   );
+  const wrapColumn =
+    sectionId === 'education' || sectionId === 'projects'
+      ? 'full-width'
+      : 'nested-list';
+  const bulletGapPx = nestedBulletItemGapPx(metrics);
+  let bodyHeight = nestedListTopMarginPx(metrics);
+
+  for (let index = 0; index < bullets.length; index++) {
+    if (index > 0) {
+      bodyHeight += bulletGapPx;
+    }
+    const visualLines = estimateWrappedTextLineCount(
+      bullets[index]!,
+      metrics,
+      wrapColumn,
+    );
+    bodyHeight += visualLines * linePx;
+  }
+
+  return metrics.listItemHeaderHeightPx + bodyHeight;
 }
 
 export function estimateSummaryHeightPx(
@@ -134,7 +166,7 @@ export function estimateSummaryHeightPx(
 ): number {
   const text = String(content.text ?? '');
   const lines = Math.max(1, Math.ceil(text.length / 80));
-  return lines * metrics.baseLinePx + metrics.sectionPartGapPx;
+  return lines * metrics.baseLinePx;
 }
 
 function buildSplittableListUnits(
@@ -155,7 +187,7 @@ function buildSplittableListUnits(
     if (bullets.length <= 1) {
       units.push({
         sectionId,
-        contentHeightPx: estimateListItemHeightPx(item, metrics),
+        contentHeightPx: estimateListItemHeightPx(item, metrics, sectionId),
         slice: { ...baseSlice, part: 'full' },
       });
       continue;
@@ -166,10 +198,16 @@ function buildSplittableListUnits(
       contentHeightPx: metrics.listItemHeaderHeightPx,
       slice: { ...baseSlice, part: 'header' },
     });
+    const bulletLinePx = resolveBulletVisualLineHeightPx(
+      sectionId,
+      'split-bullet',
+      metrics,
+    );
     for (let bi = 0; bi < bullets.length; bi++) {
+      const visualLines = estimateWrappedTextLineCount(bullets[bi]!, metrics);
       units.push({
         sectionId,
-        contentHeightPx: metrics.bulletLineHeightPx,
+        contentHeightPx: visualLines * bulletLinePx,
         slice: { ...baseSlice, part: 'bullet', bulletIndex: bi },
       });
     }
@@ -279,7 +317,7 @@ export function buildLayoutUnits(
       }
       return items.map((item, index) => ({
         sectionId,
-        contentHeightPx: estimateListItemHeightPx(item, metrics),
+        contentHeightPx: estimateListItemHeightPx(item, metrics, sectionId),
         slice: {
           sectionId,
           itemStart: index,

@@ -152,50 +152,68 @@ function resolveCoalescedShowHeading(
   return !earlierOnPage;
 }
 
+/** Sub-section split at the page boundary (last on prior page, continues on current). */
+export function resolveBoundarySubsectionKey(
+  packed: SectionRenderSlice[][],
+  pageIndex: number,
+  sectionId: ResumeSectionIdValue,
+): string | null {
+  if (pageIndex <= 0) return null;
+
+  const priorPage = packed[pageIndex - 1];
+  if (!priorPage?.length) return null;
+
+  let lastSectionSlice: SectionRenderSlice | null = null;
+  for (let index = priorPage.length - 1; index >= 0; index -= 1) {
+    const slice = priorPage[index]!;
+    if (slice.sectionId === sectionId) {
+      lastSectionSlice = slice;
+      break;
+    }
+  }
+  if (!lastSectionSlice) return null;
+
+  const key = sliceSubsectionKey(lastSectionSlice);
+  const continuesOnPage = packed[pageIndex]!.some((slice) =>
+    matchesSubsectionKey(slice, sectionId, key),
+  );
+  return continuesOnPage ? key : null;
+}
+
 function coalesceEntireSubsectionOnPage(
   packed: SectionRenderSlice[][],
   pageIndex: number,
   sectionId: ResumeSectionIdValue,
 ): void {
-  const page = packed[pageIndex]!;
-  const keys = new Set<string>();
-  for (const slice of page) {
-    if (slice.sectionId !== sectionId) continue;
-    keys.add(sliceSubsectionKey(slice));
-  }
+  const key = resolveBoundarySubsectionKey(packed, pageIndex, sectionId);
+  if (!key) return;
 
-  for (const key of keys) {
-    const existsOnEarlier = packed
-      .slice(0, pageIndex)
-      .some((p) => p.some((s) => matchesSubsectionKey(s, sectionId, key)));
-    if (!existsOnEarlier) continue;
-
-    for (let pi = 0; pi < pageIndex; pi++) {
-      packed[pi] = packed[pi]!.filter(
-        (s) => !matchesSubsectionKey(s, sectionId, key),
-      );
-    }
-
-    const target = packed[pageIndex]!;
-    const firstIndex = target.findIndex((s) =>
-      matchesSubsectionKey(s, sectionId, key),
-    );
-    if (firstIndex < 0) continue;
-
-    const template = target[firstIndex]!;
-    const showHeading = resolveCoalescedShowHeading(
-      packed,
-      pageIndex,
-      sectionId,
-      firstIndex,
-    );
-    const coalesced = buildCoalescedSlice(template, showHeading);
-    const without = target.filter(
+  for (let pi = 0; pi < pageIndex; pi++) {
+    packed[pi] = packed[pi]!.filter(
       (s) => !matchesSubsectionKey(s, sectionId, key),
     );
-    without.splice(firstIndex, 0, coalesced);
-    packed[pageIndex] = without;
   }
+
+  const target = packed[pageIndex]!;
+  const firstIndex = target.findIndex((s) =>
+    matchesSubsectionKey(s, sectionId, key),
+  );
+  if (firstIndex < 0) return;
+
+  const template = target[firstIndex]!;
+  const showHeading = resolveCoalescedShowHeading(
+    packed,
+    pageIndex,
+    sectionId,
+    firstIndex,
+  );
+  const coalesced = buildCoalescedSlice(template, showHeading);
+  const without = target.filter(
+    (s) => !matchesSubsectionKey(s, sectionId, key),
+  );
+  const insertAt = Math.min(firstIndex, without.length);
+  without.splice(insertAt, 0, coalesced);
+  packed[pageIndex] = without;
 }
 
 function resolveContinuationOverridePageIndex(

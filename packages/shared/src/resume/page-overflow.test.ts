@@ -322,13 +322,19 @@ describe('applyPageOverflow', () => {
     const page1Slices = withOverride[0]!.slices.filter(
       (s) => s.sectionId === 'experience',
     );
-    const page2Slices = withOverride[1]!.slices.filter(
-      (s) => s.sectionId === 'experience',
-    );
+    const continuationExperience = withOverride
+      .slice(1)
+      .flatMap((page) => page.slices)
+      .filter((s) => s.sectionId === 'experience');
+
     expect(page1Slices).toHaveLength(0);
-    expect(page2Slices).toHaveLength(1);
-    expect(page2Slices[0]?.part).toBe('full');
-    expect(page2Slices[0]?.itemStart).toBe(0);
+    expect(continuationExperience.length).toBeGreaterThan(0);
+    expect(
+      continuationExperience.every((slice) => slice.itemStart === 0),
+    ).toBe(true);
+    expect(
+      withOverride[1]!.slices.some((slice) => slice.sectionId === 'experience'),
+    ).toBe(true);
   });
 
   it('splits long experience bullets across pages', () => {
@@ -1331,7 +1337,7 @@ describe('applyPageOverflow', () => {
 
   it('packs compact and relaxed pages densely with different slice counts', () => {
     const experience = {
-      items: Array.from({ length: 14 }, (_, i) => ({
+      items: Array.from({ length: 20 }, (_, i) => ({
         company: `Company ${i}`,
         role: 'Engineer',
         bullets: ['Line one', 'Line two'],

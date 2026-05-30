@@ -4,6 +4,7 @@ import {
   buildLayoutUnits,
   type SectionRenderSlice,
 } from './section-layout-units';
+import { nestedListTopMarginPx } from './bullet-line-height';
 import { measurePageContentHeight } from './page-overflow';
 import { resolvePackingMetrics } from './typography-packing-metrics';
 
@@ -71,7 +72,7 @@ describe('layoutUnitKey', () => {
     );
     expect(combinedHeight).toBeGreaterThan(headerHeight);
     expect(combinedHeight - headerHeight).toBe(
-      metrics.sectionPartGapPx + bulletUnit.contentHeightPx,
+      nestedListTopMarginPx(metrics) + bulletUnit.contentHeightPx,
     );
   });
 });
