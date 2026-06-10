@@ -20,7 +20,6 @@ Thank you for considering a contribution. Stackfolio is an open-source monolith 
 
 ```bash
 pnpm install
-docker compose up -d postgres
 cp .env.example .env
 pnpm db:setup
 pnpm dev

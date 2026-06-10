@@ -12,9 +12,10 @@ Open-source stack organizer and ATS-safe resume PDF generator. Monolith: Next.js
 
 ## Quick start
 
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running (Postgres starts automatically via Compose).
+
 ```bash
 pnpm install
-docker compose up -d postgres
 cp .env.example .env
 pnpm db:setup
 pnpm dev

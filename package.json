@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "Open-source stack organizer and ATS-safe resume PDF generator",
   "scripts": {
-    "predev": "docker compose up -d postgres",
+    "docker:postgres": "docker compose up -d --wait postgres",
+    "predev": "pnpm docker:postgres",
     "dev": "dotenv -e .env -- pnpm --parallel --filter @stackfolio/shared --filter @stackfolio/web --filter @stackfolio/api dev",
     "dev:web": "dotenv -e .env -- pnpm --filter @stackfolio/web dev",
     "dev:api": "dotenv -e .env -- pnpm --filter @stackfolio/api dev",
@@ -15,6 +16,7 @@
     "db:migrate": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma migrate dev",
     "db:migrate:deploy": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma migrate deploy",
     "db:seed": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma db seed",
+    "predb:setup": "pnpm docker:postgres",
     "db:setup": "pnpm db:migrate:deploy && pnpm db:seed",
     "db:reset": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma migrate reset --force",
     "db:studio": "dotenv -e .env -- pnpm --filter @stackfolio/api exec prisma studio"
